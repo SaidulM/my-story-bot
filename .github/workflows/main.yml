@@ -1,25 +1,33 @@
-name: Story Bot
+name: Auto Story Bot
+run-name: ${{ github.actor }} is running story bot
 on:
   schedule:
-    - cron: '0 0 * * *'  # Daily at 00:00 UTC
+    - cron: '0 0 * * *'  # Daily at 00:00 UTC (6am Bangladesh time)
   workflow_dispatch:
+
 jobs:
-  run:
+  run-bot:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout code
+        uses: actions/checkout@v3
+        
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: '3.10'
+          
       - name: Install dependencies
         run: |
-          pip install gspread requests beautifulsoup4 python-telegram-bot schedule
-      - name: Run Bot
+          python -m pip install --upgrade pip
+          pip install gspread google-auth schedule requests beautifulsoup4 python-telegram-bot
+          
+      - name: Run Story Bot
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           SHEET_ID: ${{ secrets.SHEET_ID }}
-          CHANNEL: ${{ secrets.CHANNEL_NAME }}
-          CREDS: ${{ secrets.GDRIVE_CREDS }}
+          CHANNEL_NAME: ${{ secrets.CHANNEL_NAME }}
+          GDRIVE_CREDS: ${{ secrets.GDRIVE_CREDS }}
         run: |
-          echo "$CREDS" > creds.json
+          echo "$GDRIVE_CREDS" > credentials.json
           python bot.py

@@ -10,7 +10,10 @@ import re
 from telegram import Bot
 
 # Google Sheets API সেটআপ
-SCOPE = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
+SCOPE = [
+    'https://www.googleapis.com/auth/spreadsheets',
+    'https://www.googleapis.com/auth/drive'
+]
 CREDS_FILE = 'credentials.json'
 
 # গুগল শিট কনফিগ

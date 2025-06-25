@@ -1,4 +1,5 @@
 name: Auto Story Bot
+run-name: ${{ github.actor }} is running the story bot
 
 on:
   schedule:

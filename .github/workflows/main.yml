@@ -28,5 +28,6 @@ jobs:
           CHANNEL_NAME: ${{ secrets.CHANNEL_NAME }}
           GDRIVE_CREDS: ${{ secrets.GDRIVE_CREDS }}
         run: |
-          echo "$GDRIVE_CREDS" > credentials.json
-          python -c "from bot import main; main()"
+  echo "$GDRIVE_CREDS" > credentials.json
+  python bot.py
+

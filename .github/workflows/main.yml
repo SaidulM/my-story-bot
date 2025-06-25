@@ -2,7 +2,7 @@ name: Auto Story Bot
 run-name: ${{ github.actor }} is running story bot
 on:
   schedule:
-    - cron: '0 0 * * *'  # প্রতিদিন UTC 00:00 (বাংলাদেশ সময় সকাল ৬টা)
+    - cron: '0 0 * * *'
   workflow_dispatch:
 
 jobs:
@@ -30,4 +30,4 @@ jobs:
           GDRIVE_CREDS: ${{ secrets.GDRIVE_CREDS }}
         run: |
           echo "$GDRIVE_CREDS" > credentials.json
-          python bot.py
+          python src/bot.py

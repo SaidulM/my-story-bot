@@ -1,3 +1,4 @@
+import os
 import gspread
 from google.oauth2.service_account import Credentials
 import requests
@@ -16,29 +17,27 @@ SCOPE = [
 ]
 CREDS_FILE = 'credentials.json'
 
-# গুগল শিট কনফিগ
-SPREADSHEET_ID = 'YOUR_SHEET_ID'  # আপনার শিট আইডি দিয়ে প্রতিস্থাপন করুন
+# এনভায়রনমেন্ট ভেরিয়েবল থেকে মান নিন
+SPREADSHEET_ID = os.environ.get('SHEET_ID', '1RWlfyfZjP8TZukX_nzNCg1KTHKvNm4SQy_yfomqYhcs')
+TELEGRAM_TOKEN = os.environ.get('BOT_TOKEN', 'default_token')
+CHANNEL_NAME = os.environ.get('CHANNEL_NAME', '@default_channel')
 
-# টেলিগ্রাম বট সেটআপ
-TELEGRAM_TOKEN = 'YOUR_BOT_TOKEN'  # আপনার বট টোকেন দিয়ে প্রতিস্থাপন করুন
-CHANNEL_NAME = '@YOUR_CHANNEL'    # আপনার চ্যানেল ইউজারনেম দিয়ে প্রতিস্থাপন করুন
-
-# বিশ্বস্ত ওপেন সোর্স ওয়েবসাইট (বয়স-উপযুক্ত কন্টেন্ট)
+# বিশ্বস্ত ওপেন সোর্স ওয়েবসাইট (সমস্যা অনুযায়ী আপডেট করা)
 TRUSTED_SOURCES = {
     "english": [
         "https://www.gutenberg.org/ebooks/search/?query=short+stories",
         "https://www.freechildrenstories.com/",
-        "https://www.storynory.com/archives/fairy-tales/"
+        "https://americanliterature.com/short-short-stories"
     ],
     "bengali": [
         "https://www.bangla-gobol.com/",
-        "https://www.bangla-kobita.com/",
-        "https://www.rokomari.com/book/category/1/"
+        "https://www.bangla-kobita.com/golpo/",
+        "https://www.rokomari.com/book/category/1"
     ],
     "hindi": [
         "https://hindikahaniyan.com/",
         "https://kavitakosh.org/",
-        "https://www.hindisahityadarpan.in/"
+        "https://www.hindishayari.in/"
     ]
 }
 
@@ -89,115 +88,123 @@ def is_adult_content(text):
 
 def fetch_stories(language):
     """গল্প সংগ্রহ করার ফাংশন"""
-    worksheet = get_google_sheet(language.capitalize())
-    sources = TRUSTED_SOURCES[language]
-    category = random.choice(CATEGORIES[language])
-    
-    for source in sources:
-        try:
-            response = requests.get(source)
-            soup = BeautifulSoup(response.text, 'html.parser')
-            
-            # গল্প নির্বাচন (ভিন্ন ওয়েবসাইটের জন্য ভিন্ন লজিক)
-            if "gutenberg.org" in source:
-                stories = [p.get_text().strip() for p in soup.select('.chapter p')]
-            elif "bangla-gobol.com" in source:
-                stories = [div.get_text().strip() for div in soup.select('.story-content')]
-            elif "hindikahaniyan.com" in source:
-                stories = [article.get_text().strip() for article in soup.select('.entry-content')]
-            else:
-                stories = [p.get_text().strip() for p in soup.find_all('p')]
-            
-            # গল্প ফিল্টারিং
-            valid_stories = []
-            for story in stories:
-                words = story.split()
-                word_count = len(words)
-                if (100 <= word_count <= 500 and 
-                    not is_adult_content(story) and 
-                    not any(url in story for url in ["http://", "https://"])):
-                    valid_stories.append(story)
-            
-            if valid_stories:
-                selected_story = random.choice(valid_stories)
-                title = f"{category} গল্প {random.randint(1, 100)}"[:50]
+    try:
+        worksheet = get_google_sheet(language.capitalize())
+        sources = TRUSTED_SOURCES[language]
+        category = random.choice(CATEGORIES[language])
+        
+        for source in sources:
+            try:
+                print(f"Fetching from {source} for {language}")
+                response = requests.get(source, timeout=10)
+                soup = BeautifulSoup(response.text, 'html.parser')
                 
-                # ডুপ্লিকেট চেক
-                existing_titles = worksheet.col_values(1)
-                if title not in existing_titles:
-                    emoji = EMOJI_MAP.get(category, "📖")
-                    worksheet.append_row([
-                        title,
-                        selected_story,
-                        category,
-                        source,
-                        "✗",
-                        "",
-                        emoji
-                    ])
-                    print(f"Added new {language} story: {title}")
-                    return True
-        except Exception as e:
-            print(f"Error fetching from {source}: {str(e)}")
+                # গল্প নির্বাচন
+                stories = []
+                if "gutenberg.org" in source:
+                    stories = [p.get_text().strip() for p in soup.select('p') if len(p.get_text().split()) > 50]
+                elif "bangla-gobol.com" in source:
+                    stories = [div.get_text().strip() for div in soup.select('.story-content')]
+                elif "hindikahaniyan.com" in source:
+                    stories = [article.get_text().strip() for article in soup.select('.entry-content')]
+                else:
+                    stories = [p.get_text().strip() for p in soup.find_all('p') if len(p.get_text().split()) > 50]
+                
+                # গল্প ফিল্টারিং
+                valid_stories = []
+                for story in stories:
+                    words = story.split()
+                    word_count = len(words)
+                    if (100 <= word_count <= 500 and 
+                        not is_adult_content(story) and 
+                        not any(url in story for url in ["http://", "https://"])):
+                        valid_stories.append(story)
+                
+                if valid_stories:
+                    selected_story = random.choice(valid_stories)
+                    title = f"{category} গল্প {random.randint(1, 100)}"[:50]
+                    
+                    # ডুপ্লিকেট চেক (হেডার বাদ দিন)
+                    existing_titles = worksheet.col_values(1)[1:]  
+                    if title not in existing_titles:
+                        emoji = EMOJI_MAP.get(category, "📖")
+                        worksheet.append_row([
+                            title,
+                            selected_story,
+                            category,
+                            source,
+                            "✗",
+                            "",
+                            emoji
+                        ])
+                        print(f"Added new {language} story: {title}")
+                        return True
+            except Exception as e:
+                print(f"Error fetching from {source}: {str(e)}")
+    except Exception as e:
+        print(f"Error in fetch_stories for {language}: {str(e)}")
     return False
 
 def post_to_telegram():
     """টেলিগ্রামে গল্প পোস্ট করার ফাংশন"""
-    bot = Bot(token=TELEGRAM_TOKEN)
-    
-    for language in ["English", "Bengali", "Hindi"]:
-        try:
-            worksheet = get_google_sheet(language)
-            records = worksheet.get_all_records()
-            
-            for record in records:
-                if record['Posted'] == "✗":
-                    title = record['Title']
-                    content = record['Content']
-                    category = record['Category']
-                    emoji = record['Emoji']
-                    
-                    message = (
-                        f"{emoji} *{title}* {emoji}\n\n"
-                        f"{content}\n\n"
-                        f"{emoji} #{category.replace(' ', '_')}"
-                    )
-                    
-                    # 4096 ক্যারেক্টারের বেশি হলে ভাগ করে পোস্ট করুন
-                    if len(message) > 4096:
-                        part1 = message[:4000]
-                        last_newline = part1.rfind('\n')
-                        if last_newline != -1:
-                            part1 = message[:last_newline]
+    try:
+        bot = Bot(token=TELEGRAM_TOKEN)
+        
+        for language in ["English", "Bengali", "Hindi"]:
+            try:
+                worksheet = get_google_sheet(language)
+                records = worksheet.get_all_records()
+                
+                for record in records:
+                    if record.get('Posted') == "✗":
+                        title = record['Title']
+                        content = record['Content']
+                        category = record['Category']
+                        emoji = record['Emoji']
                         
-                        bot.send_message(chat_id=CHANNEL_NAME, text=part1, parse_mode="Markdown")
-                        bot.send_message(chat_id=CHANNEL_NAME, text=message[last_newline:], parse_mode="Markdown")
-                    else:
-                        bot.send_message(chat_id=CHANNEL_NAME, text=message, parse_mode="Markdown")
-                    
-                    # পোস্ট স্ট্যাটাস আপডেট করুন
-                    cell = worksheet.find(title, in_column=1)
-                    worksheet.update_cell(cell.row, 5, "✓")
-                    worksheet.update_cell(cell.row, 6, datetime.now().strftime("%Y-%m-%d %H:%M"))
-                    print(f"Posted {language} story: {title}")
-                    break
-        except Exception as e:
-            print(f"Error posting {language} story: {str(e)}")
+                        message = (
+                            f"{emoji} *{title}* {emoji}\n\n"
+                            f"{content}\n\n"
+                            f"{emoji} #{category.replace(' ', '_')}"
+                        )
+                        
+                        # 4096 ক্যারেক্টারের বেশি হলে ভাগ করে পোস্ট করুন
+                        if len(message) > 4096:
+                            part1 = message[:4000]
+                            last_newline = part1.rfind('\n')
+                            if last_newline != -1:
+                                part1 = message[:last_newline]
+                            
+                            bot.send_message(chat_id=CHANNEL_NAME, text=part1, parse_mode="Markdown")
+                            bot.send_message(chat_id=CHANNEL_NAME, text=message[last_newline:], parse_mode="Markdown")
+                        else:
+                            bot.send_message(chat_id=CHANNEL_NAME, text=message, parse_mode="Markdown")
+                        
+                        # পোস্ট স্ট্যাটাস আপডেট করুন
+                        cell = worksheet.find(title, in_column=1)
+                        worksheet.update_cell(cell.row, 5, "✓")
+                        worksheet.update_cell(cell.row, 6, datetime.now().strftime("%Y-%m-%d %H:%M"))
+                        print(f"Posted {language} story: {title}")
+                        return
+            except Exception as e:
+                print(f"Error posting {language} story: {str(e)}")
+    except Exception as e:
+        print(f"Error in post_to_telegram: {str(e)}")
 
 def main():
     """মেইন ফাংশন"""
-    # প্রতিদিন সকাল ৬টা থেকে রাত ১০টা পর্যন্ত ৭টি পোস্টের সময়সূচী
-    post_times = ["06:00", "08:00", "10:00", "12:00", "14:00", "16:00", "18:00", "20:00", "22:00"]
+    # বাংলাদেশ সময় UTC+6, তাই UTC সময়ে শিডিউল সেট করুন
+    post_times = ["00:00", "02:00", "04:00", "06:00", "08:00", "10:00", "12:00", "14:00", "16:00"]
     
     for time_str in post_times:
         schedule.every().day.at(time_str).do(post_to_telegram)
     
-    # প্রতি ৪ ঘণ্টায় নতুন গল্প সংগ্রহ
-    schedule.every(4).hours.do(lambda: fetch_stories("english"))
-    schedule.every(4).hours.do(lambda: fetch_stories("bengali"))
-    schedule.every(4).hours.do(lambda: fetch_stories("hindi"))
+    # প্রতি ৬ ঘণ্টায় নতুন গল্প সংগ্রহ
+    schedule.every(6).hours.do(lambda: fetch_stories("english"))
+    schedule.every(6).hours.do(lambda: fetch_stories("bengali"))
+    schedule.every(6).hours.do(lambda: fetch_stories("hindi"))
     
-    print("Bot started successfully!")
+    print("Bot started successfully! Waiting for scheduled tasks...")
     while True:
         schedule.run_pending()
         time.sleep(60)

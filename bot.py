@@ -209,11 +209,12 @@ def setup_scheduler():
     for time_str in ist_times:
         schedule.every().day.at(time_str).do(
             lambda: asyncio.run(post_to_telegram())
+        )  # এই বন্ধনীটি যোগ করুন
     
     # প্রতি ৬ ঘণ্টায় ডেটা রিফ্রেশ
-    schedule.every(6).hours.do(
-        lambda: asyncio.run(fetch_stories(random.choice(['english', 'bengali', 'hindi']))))
-
+    schedule.every(3).hours.do(
+        lambda: asyncio.run(fetch_stories(random.choice(['english', 'bengali', 'hindi'])))
+    )
 # -------------------- মেইন এক্সিকিউশন -------------------- #
 
 if __name__ == "__main__":

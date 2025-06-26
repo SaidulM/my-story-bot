@@ -142,7 +142,9 @@ def fetch_stories(language):
             except Exception as e:
                 print(f"Error fetching from {source}: {str(e)}")
     except Exception as e:
-        print(f"Error in fetch_stories for {language}: {str(e)}")
+       print(f"Response status: {response.status_code}")
+print(f"Content length: {len(response.text)}")
+print(f"Error in fetch_stories for {language}: {str(e)}")
     return False
 
 def post_to_telegram():

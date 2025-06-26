@@ -1,3 +1,7 @@
+git add .
+git commit -m "Fixed syntax error in scheduler"
+git push
+
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """

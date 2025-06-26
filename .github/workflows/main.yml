@@ -1,5 +1,4 @@
 name: Auto Story Bot (IST)
-run-name: ${{ github.actor }} is running story bot
 on:
   schedule:
     - cron: '30 18 * * *'  # ভারতীয় সময় 00:00 (UTC+5:30)
